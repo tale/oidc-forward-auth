@@ -1,0 +1,22 @@
+services:
+    traefik:
+        image: traefik:v3.0
+        container_name: traefik
+        command:
+            - "--providers.docker=true"
+            - "--entrypoints.web.address=:80"
+        ports:
+            - "8080:80"
+        volumes:
+            - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    whoami:
+        image: traefik/whoami
+        container_name: whoami
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.whoami.rule=PathPrefix(`/`)"
+            - "traefik.http.routers.whoami.entrypoints=web"
+            - "traefik.http.middlewares.forward-auth.forwardauth.address=http://host.docker.internal:4180"
+            - "traefik.http.routers.whoami.middlewares=forward-auth"

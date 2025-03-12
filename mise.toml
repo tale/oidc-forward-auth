@@ -1,0 +1,11 @@
+[tools]
+air = "1"
+go = "1.23.4"
+
+[tasks.dev]
+description = "Run the hot-reloading server"
+run = 'air --build.cmd "go build -o bin/ofa cmd/oidc_forward_auth.go" --build.bin "bin/ofa"'
+
+[tasks.compose]
+description = "Run the docker-compose stack"
+run = "docker compose up"
