@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
@@ -14,7 +15,7 @@ import (
 
 type Config struct {
 	CookieSecret string // The secret used to encrypt the session cookie
-	AuthHost     string // The host that your forward auth gateway will run on (eg. auth.example.com)
+	GatewayURL   string // The URL of the forward auth gateway (eg. https://auth.example.com)
 	OidcIssuer   string // The OIDC issuer URL (eg. https://oidc.example.com)
 	ClientId     string // The OIDC client ID
 	ClientSecret string // The OIDC client secret
@@ -30,7 +31,7 @@ type Config struct {
 
 const (
 	CookieSecret = "COOKIE_SECRET"
-	AuthHost     = "AUTH_HOST"
+	GatewayURL   = "GATEWAY_URL"
 	OidcIssuer   = "OIDC_ISSUER"
 	ClientId     = "OIDC_CLIENT_ID"
 	ClientSecret = "OIDC_CLIENT_SECRET"
@@ -39,7 +40,7 @@ const (
 	DebugEnv     = "DEBUG"
 	CookieDomain = "COOKIE_DOMAIN"
 	CookieName   = "COOKIE_NAME"
-	CookieSecure = "COOKIE"
+	CookieSecure = "COOKIE_SECURE"
 	CookieExpiry = "COOKIE_EXPIRY"
 	Port         = "PORT"
 )
@@ -47,8 +48,8 @@ const (
 var (
 	ErrMissingCookieSecret = errors.New(fmt.Sprintf("missing %s", CookieSecret))
 	ErrCookieSecretLength  = errors.New(fmt.Sprintf("%s must be 32 characters", CookieSecret))
-	ErrMissingAuthHost     = errors.New(fmt.Sprintf("missing %s", AuthHost))
-	ErrInvalidAuthHost     = errors.New(fmt.Sprintf("%s must be a valid hostname", AuthHost))
+	ErrMissingGatewayURL   = errors.New(fmt.Sprintf("missing %s", GatewayURL))
+	ErrInvalidGatewayURL   = errors.New(fmt.Sprintf("%s must be a valid URL", GatewayURL))
 	ErrMissingOidcIssuer   = errors.New(fmt.Sprintf("missing %s", OidcIssuer))
 	ErrMissingClientId     = errors.New(fmt.Sprintf("missing %s", ClientId))
 	ErrMissingClientSecret = errors.New(fmt.Sprintf("missing %s", ClientSecret))
@@ -67,14 +68,14 @@ func LoadConfig() (*Config, error) {
 		return nil, ErrCookieSecretLength
 	}
 
-	authHost := os.Getenv(AuthHost)
-	if authHost == "" {
-		return nil, ErrMissingAuthHost
+	gatewayUrl := os.Getenv(GatewayURL)
+	if gatewayUrl == "" {
+		return nil, ErrMissingGatewayURL
 	}
 
-	// Validate auth host is a valid hostname
-	if _, err := url.Parse(authHost); err != nil {
-		return nil, ErrInvalidAuthHost
+	// Validate the gateway URL is a valid URL
+	if _, err := url.Parse(gatewayUrl); err != nil {
+		return nil, ErrInvalidGatewayURL
 	}
 
 	oidcIssuer := os.Getenv(OidcIssuer)
@@ -94,7 +95,12 @@ func LoadConfig() (*Config, error) {
 
 	cookieDomain := os.Getenv(CookieDomain)
 	if cookieDomain == "" {
-		cookieDomain = subdomainToRootCookie(authHost)
+		cookieDomain = subdomainToRootCookie(gatewayUrl)
+		if cookieDomain == "" {
+			log.Println(nil, "error getting root domain from %s", gatewayUrl)
+			log.Println(nil, "you should probably set %s manually", CookieDomain)
+			return nil, ErrInvalidGatewayURL
+		}
 	}
 
 	cookieName := os.Getenv(CookieName)
@@ -135,7 +141,7 @@ func LoadConfig() (*Config, error) {
 	return &Config{
 		Debug:        debug,
 		CookieSecret: cookieSecret,
-		AuthHost:     authHost,
+		GatewayURL:   gatewayUrl,
 		OidcIssuer:   oidcIssuer,
 		ClientId:     clientId,
 		ClientSecret: clientSecret,
@@ -148,9 +154,20 @@ func LoadConfig() (*Config, error) {
 }
 
 func subdomainToRootCookie(domain string) string {
-	// Split off the port first if present
-	domain = strings.Split(domain, ":")[0]
-	parts := strings.Split(domain, ".")
+	// Parse the domain as a URL to get the host
+	url, err := url.Parse(domain)
+	if err != nil {
+		log.Println(nil, "error parsing domain %s: %v", domain, err)
+		return ""
+	}
+
+	host, _, err := net.SplitHostPort(url.Host)
+	if err != nil {
+		log.Println(nil, "error splitting host and port %s: %v", url.Host, err)
+		return ""
+	}
+
+	parts := strings.Split(host, ".")
 	if len(parts) < 2 {
 		return domain
 	}
