@@ -8,7 +8,13 @@ import (
 	oidc_forward_auth "github.com/tale/oidc-forward-auth/internal"
 )
 
+var (
+	GitTag    = "dev"
+	GitCommit = "unknown"
+)
+
 func main() {
+	log.Printf("Starting oidc-forward-auth %s (%s)", GitTag, GitCommit)
 	config, err := oidc_forward_auth.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
