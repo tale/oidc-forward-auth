@@ -32,8 +32,8 @@ func NewLogger() *Logger {
 	// Errors still go to both stdout and stderr
 	return &Logger{
 		debug: nil,
-		info:  log.New(os.Stdout, "INFO", log.LstdFlags),
-		error: log.New(os.Stderr, "ERROR", log.LstdFlags),
+		info:  log.New(os.Stdout, "[INFO] ", log.LstdFlags),
+		error: log.New(os.Stderr, "[ERROR] ", log.LstdFlags),
 	}
 }
 
@@ -41,7 +41,7 @@ func (logger *Logger) SetDebug(debug bool) {
 	if debug {
 		logger.Info("Enabling Debug logging for oidc-forward-auth")
 		logger.Info("Be careful, this will spam a lot of information")
-		logger.debug = log.New(os.Stdout, "DEBUG", log.LstdFlags)
+		logger.debug = log.New(os.Stdout, "[DEBUG] ", log.LstdFlags)
 	} else {
 		logger.debug = nil
 	}

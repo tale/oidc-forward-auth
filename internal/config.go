@@ -3,7 +3,6 @@ package oidc_forward_auth
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"os"
@@ -56,6 +55,7 @@ var (
 )
 
 func LoadConfig() (*Config, error) {
+	log := GetLogger()
 	debug := os.Getenv(DebugEnv) == "true"
 
 	cookieSecret := os.Getenv(CookieSecret)
@@ -97,8 +97,8 @@ func LoadConfig() (*Config, error) {
 	if cookieDomain == "" {
 		cookieDomain = subdomainToRootCookie(gatewayUrl)
 		if cookieDomain == "" {
-			log.Println(nil, "error getting root domain from %s", gatewayUrl)
-			log.Println(nil, "you should probably set %s manually", CookieDomain)
+			log.Error("Cannot determine cookie domain from %s", gatewayUrl)
+			log.Error("If this persists, please set %s manually", CookieDomain)
 			return nil, ErrInvalidGatewayURL
 		}
 	}
@@ -119,7 +119,8 @@ func LoadConfig() (*Config, error) {
 	if cookieExpiry != "" {
 		conv, err := strconv.ParseInt(cookieExpiry, 10, 64)
 		if err != nil {
-			log.Println(nil, "error converting %s: %v", CookieExpiry, err)
+			log.Error("Unable to load a value for %s", CookieExpiry)
+			log.Error("Unable to parse %s as an integer: %v", cookieExpiry, err)
 			return nil, err
 		}
 
@@ -131,7 +132,8 @@ func LoadConfig() (*Config, error) {
 	if port != "" {
 		conv, err := strconv.Atoi(port)
 		if err != nil {
-			log.Println(nil, "error converting %s: %v", Port, err)
+			log.Error("Unable to load a value for %s", Port)
+			log.Error("Unable to parse %s as a port: %v", port, err)
 			return nil, err
 		}
 
