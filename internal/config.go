@@ -154,16 +154,18 @@ func LoadConfig() (*Config, error) {
 }
 
 func subdomainToRootCookie(domain string) string {
+	log := GetLogger()
+
 	// Parse the domain as a URL to get the host
 	url, err := url.Parse(domain)
 	if err != nil {
-		log.Println(nil, "error parsing domain %s: %v", domain, err)
+		log.Error("Error parsing Gateway URL %s: %v", domain, err)
 		return ""
 	}
 
 	host, _, err := net.SplitHostPort(url.Host)
 	if err != nil {
-		log.Println(nil, "error splitting host and port %s: %v", url.Host, err)
+		log.Error("Error splitting host and port %s: %v", url.Host, err)
 		return ""
 	}
 

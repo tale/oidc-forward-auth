@@ -3,7 +3,6 @@ package oidc_forward_auth
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -27,6 +26,8 @@ func RegisterHandlers(config *Config, oauth2 *OidcClient) {
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		log := GetLogger()
+
 		valid, cookie := CheckCookieAuth(config, r)
 		if valid {
 			if cookie != nil {
@@ -83,6 +84,7 @@ func RegisterHandlers(config *Config, oauth2 *OidcClient) {
 			Path:   uri,
 		}
 
+		log.Debug("Storing URL %s for %s", url.String(), r.RemoteAddr)
 		state, err := GenerateState(url.String())
 		if err != nil {
 			http.Error(w, "Failed to generate state", http.StatusInternalServerError)
@@ -111,6 +113,8 @@ func RegisterHandlers(config *Config, oauth2 *OidcClient) {
 	})
 
 	http.HandleFunc("/oidc", func(w http.ResponseWriter, r *http.Request) {
+		log := GetLogger()
+
 		cookie, err := r.Cookie(config.CookieName)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -120,7 +124,7 @@ func RegisterHandlers(config *Config, oauth2 *OidcClient) {
 
 		claims, err := DecodeCookie(config, cookie)
 		if err != nil {
-			log.Println("Failed to decode cookie:", err)
+			log.Error("Unable to decode cookie from %s: %v", r.RemoteAddr, err)
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Failed to decode cookie"))
 		}
@@ -173,7 +177,7 @@ func RegisterHandlers(config *Config, oauth2 *OidcClient) {
 			return
 		}
 
-		log.Println("Redirecting to:", url)
+		log.Debug("Redirecting %s to %s", r.RemoteAddr, url)
 		http.Redirect(w, r, url, http.StatusFound)
 	})
 

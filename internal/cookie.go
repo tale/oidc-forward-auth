@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -25,9 +24,12 @@ type CookieClaims struct {
 }
 
 func CheckCookieAuth(config *Config, r *http.Request) (bool, *http.Cookie) {
+	log := GetLogger()
+
 	cookie, err := r.Cookie(config.CookieName)
 	if err != nil {
-		log.Printf("Failed to get cookie: %v", err)
+		// This means we don't have a cookie
+		log.Debug("Request from %s has no cookie", r.RemoteAddr)
 		return false, nil
 	}
 
@@ -35,7 +37,7 @@ func CheckCookieAuth(config *Config, r *http.Request) (bool, *http.Cookie) {
 	s := securecookie.New([]byte(config.CookieSecret), nil)
 	err = s.Decode(config.CookieName, cookie.Value, &value)
 	if err != nil {
-		log.Printf("Failed to decode cookie: %v", err)
+		log.Error("Unable to decode cookie from %s: %v", r.RemoteAddr, err)
 		return false, nil
 	}
 
@@ -43,14 +45,14 @@ func CheckCookieAuth(config *Config, r *http.Request) (bool, *http.Cookie) {
 	claims := &CookieClaims{}
 	err = json.Unmarshal(value, claims)
 	if err != nil {
-		log.Printf("Failed to unmarshal cookie: %v", err)
+		log.Error("Unable to unmarshal cookie from %s: %v", r.RemoteAddr, err)
 		return false, nil
 	}
 
 	now := time.Now().Unix()
 	if now > claims.Expiry {
 		// Expired cookie
-		log.Printf("Cookie expired: %v", claims.Expiry)
+		log.Debug("Request from %s has expired cookie", r.RemoteAddr)
 		return false, nil
 	}
 
@@ -65,11 +67,11 @@ func CheckCookieAuth(config *Config, r *http.Request) (bool, *http.Cookie) {
 		// This won't renew the cookie, but auth flow will still be successful
 		cookie, err = IssueCookie(config, claims)
 		if err != nil {
-			log.Printf("Failed to issue cookie: %v", err)
+			log.Error("Failed to issue cookie for %s: %v", r.RemoteAddr, err)
 			return true, nil
 		}
 
-		log.Printf("Rolled cookie expiry to: %v", newExpiry)
+		log.Debug("Request from %s has rolled cookie", r.RemoteAddr)
 		return true, cookie
 	}
 
