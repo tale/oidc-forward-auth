@@ -163,10 +163,13 @@ func subdomainToRootCookie(domain string) string {
 		return ""
 	}
 
-	host, _, err := net.SplitHostPort(url.Host)
-	if err != nil {
-		log.Error("Error splitting host and port %s: %v", url.Host, err)
-		return ""
+	host := url.Host
+	if strings.Contains(url.Host, ":") {
+		host, _, err = net.SplitHostPort(url.Host)
+		if err != nil {
+			log.Error("Error splitting host and port %s: %v", url.Host, err)
+			return ""
+		}
 	}
 
 	parts := strings.Split(host, ".")
