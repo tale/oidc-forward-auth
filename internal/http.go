@@ -131,6 +131,7 @@ func RegisterHandlers(config *Config, oauth2 *OidcClient) {
 
 		state := r.URL.Query().Get("state")
 		if state != claims.State {
+			log.Debug("%s: Invalid State, expected %s, got %s", r.RemoteAddr, claims.State, state)
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Invalid state"))
 			return
@@ -173,6 +174,7 @@ func RegisterHandlers(config *Config, oauth2 *OidcClient) {
 		http.SetCookie(w, cookie)
 		url, err := GetURLFromState(claims.State)
 		if err != nil {
+			log.Debug("Failed to get URL from state: %v", err)
 			http.Error(w, "Failed to get URL from state", http.StatusInternalServerError)
 			return
 		}
