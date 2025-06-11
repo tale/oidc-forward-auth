@@ -1,4 +1,4 @@
-package oidc_forward_auth
+package http
 
 import (
 	"context"
@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/tale/oidc-forward-auth/internal/util"
 )
 
-func RegisterHandlers(config *Config, oauth2 *OidcClient) {
+func RegisterHandlers(config *util.Config, oauth2 *OidcClient) {
 	http.HandleFunc("/_health", func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(config.CookieName)
 		if err != nil {
@@ -26,15 +27,17 @@ func RegisterHandlers(config *Config, oauth2 *OidcClient) {
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log := GetLogger()
+		log := util.GetLogger()
 
-		valid, cookie := CheckCookieAuth(config, r)
-		if valid {
-			if cookie != nil {
-				http.SetCookie(w, cookie)
-			}
-
+		if shouldSkipReauth(config, r) {
 			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("Already authenticated"))
+			return
+		}
+
+		if shouldRejectNewState(config, r) {
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte("Login is already in progress"))
 			return
 		}
 
@@ -85,35 +88,21 @@ func RegisterHandlers(config *Config, oauth2 *OidcClient) {
 		}
 
 		log.Debug("Storing URL %s for %s", url.String(), r.RemoteAddr)
-		state, err := GenerateState(url.String())
+		stateCookie, stateID, nonce, err := issueStateCookie(config, url.String())
 		if err != nil {
-			http.Error(w, "Failed to generate state", http.StatusInternalServerError)
+			http.Error(w, "Failed to issue state cookie", http.StatusInternalServerError)
 			return
 		}
 
-		nonce, err := GenerateNonce()
-		if err != nil {
-			http.Error(w, "Failed to generate nonce", http.StatusInternalServerError)
-			return
-		}
+		http.SetCookie(w, stateCookie)
 
-		flowCookie, err := IssueCookie(config, &CookieClaims{
-			State: state,
-			Nonce: nonce,
-		})
-
-		if err != nil {
-			http.Error(w, "Failed to issue cookie", http.StatusInternalServerError)
-			return
-		}
-
-		http.SetCookie(w, flowCookie)
-		authUrl := oauth2.AuthCodeURL(state, oidc.Nonce(nonce))
+		// Check for login hints
+		authUrl := oauth2.AuthCodeURL(stateID.String(), oidc.Nonce(nonce))
 		http.Redirect(w, r, authUrl, http.StatusFound)
 	})
 
 	http.HandleFunc("/oidc", func(w http.ResponseWriter, r *http.Request) {
-		log := GetLogger()
+		log := util.GetLogger()
 
 		cookie, err := r.Cookie(config.CookieName)
 		if err != nil {
@@ -122,65 +111,45 @@ func RegisterHandlers(config *Config, oauth2 *OidcClient) {
 			return
 		}
 
-		claims, err := DecodeCookie(config, cookie)
+		stateID, stateKey, err := decodeStateCookie(config, cookie)
 		if err != nil {
-			log.Error("Unable to decode cookie from %s: %v", r.RemoteAddr, err)
+			log.Error("Unable to decode state cookie from %s: %v", r.RemoteAddr, err)
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Failed to decode cookie"))
+			w.Write([]byte("Failed to decode state cookie"))
+			return
 		}
 
 		state := r.URL.Query().Get("state")
-		if state != claims.State {
-			log.Debug("%s: Invalid State, expected %s, got %s", r.RemoteAddr, claims.State, state)
+		if state != (*stateID).String() {
+			log.Debug("%s: Invalid State, expected %s, got %s", r.RemoteAddr, (*stateID).String(), state)
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Invalid state"))
 			return
 		}
 
 		// We need the id_token to verify the nonce
+		code := r.URL.Query().Get("code")
 		ctx := context.Background()
-		oauth2Token, err := oauth2.Exchange(ctx, r.URL.Query().Get("code"))
-		if err != nil {
-			http.Error(w, "Failed to exchange token: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		rawIDToken, ok := oauth2Token.Extra("id_token").(string)
-		if !ok {
-			http.Error(w, "No id_token field in oauth2 token.", http.StatusInternalServerError)
-			return
-		}
-		idToken, err := oauth2.verifier.Verify(ctx, rawIDToken)
-		if err != nil {
-			http.Error(w, "Failed to verify ID Token: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
 
-		if claims.Nonce != idToken.Nonce {
-			http.Error(w, "nonce did not match", http.StatusBadRequest)
+		idToken, err := oauth2.verifyCode(ctx, code, stateKey.Nonce)
+		if err != nil {
+			log.Error("Failed to verify code: %v", err)
+			http.Error(w, "Failed to verify code", http.StatusInternalServerError)
 			return
 		}
 
 		// Make an expiry using the config (CookieExpiry is in minutes)
 		exp := time.Now().Add(time.Duration(config.CookieExpiry) * time.Minute)
-		cookie, err = IssueCookie(config, &CookieClaims{
-			Expiry: exp.Unix(),
-		})
-
+		cookie, err = issueAuthCookie(config, idToken.Subject, exp.Unix())
 		if err != nil {
+			log.Error("Failed to issue cookie: %v", err)
 			http.Error(w, "Failed to issue cookie", http.StatusInternalServerError)
 			return
 		}
 
 		http.SetCookie(w, cookie)
-		url, err := GetURLFromState(claims.State)
-		if err != nil {
-			log.Debug("Failed to get URL from state: %v", err)
-			http.Error(w, "Failed to get URL from state", http.StatusInternalServerError)
-			return
-		}
-
-		log.Debug("Redirecting %s to %s", r.RemoteAddr, url)
-		http.Redirect(w, r, url, http.StatusFound)
+		log.Debug("Redirecting %s to %s", r.RemoteAddr, stateKey.RedirectURL)
+		http.Redirect(w, r, stateKey.RedirectURL, http.StatusFound)
 	})
 
 }

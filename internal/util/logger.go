@@ -1,4 +1,4 @@
-package oidc_forward_auth
+package util
 
 import (
 	"log"
