@@ -1,4 +1,4 @@
-package http
+package http_utils
 
 import (
 	"context"
@@ -48,7 +48,7 @@ func NewClient(config *util.Config) (*OidcClient, error) {
 	return &OidcClient{oauth2, verifier}, nil
 }
 
-func (oc *OidcClient) verifyCode(ctx context.Context, code, nonce string) (*oidc.IDToken, error) {
+func (oc *OidcClient) VerifyCode(ctx context.Context, code, nonce string) (*oidc.IDToken, error) {
 	token, err := oc.Exchange(ctx, code)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange code: %w", err)

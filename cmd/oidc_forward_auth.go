@@ -5,7 +5,8 @@ import (
 	"net/http"
 	"os"
 
-	h "github.com/tale/oidc-forward-auth/internal/http"
+	"github.com/tale/oidc-forward-auth/internal/http_handlers"
+	"github.com/tale/oidc-forward-auth/internal/http_utils"
 	"github.com/tale/oidc-forward-auth/internal/store"
 	"github.com/tale/oidc-forward-auth/internal/util"
 )
@@ -28,7 +29,7 @@ func main() {
 		log.SetDebug(true)
 	}
 
-	oauth2, err := h.NewClient(config)
+	oauth2, err := http_utils.NewClient(config)
 	if err != nil {
 		log.Error("Failed to create OAuth2 config: %v", err)
 		os.Exit(1)
@@ -47,7 +48,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	h.RegisterHandlers(config, oauth2)
+	http.HandleFunc("/", http_handlers.HandleRoot(config, oauth2))
+	http.HandleFunc("/oidc", http_handlers.HandleOidcCallback(config, oauth2))
 
 	port := fmt.Sprintf(":%d", config.Port)
 	log.Info("Listening on %s", port)

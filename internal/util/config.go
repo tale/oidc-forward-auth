@@ -20,12 +20,13 @@ type Config struct {
 	ClientSecret string // The OIDC client secret
 
 	// Optional
-	Debug        bool   // Enable debug logging
-	CookieDomain string // Defaults to the root of your auth host subdomain (eg. .example.com)
-	CookieName   string // The name of the cookie that stores the session token
-	CookieSecure bool   // Set the secure flag on the cookie (are we on HTTPS?)
-	CookieExpiry int64  // The expiry time of the cookie in minutes (default 60)
-	Port         int    // The port that the forward auth gateway will run on
+	Debug           bool   // Enable debug logging
+	CookieDomain    string // Defaults to the root of your auth host subdomain (eg. .example.com)
+	CookieName      string // The name of the cookie that stores the session token (default: _forward_oidc)
+	StateCookieName string // The name of the cookie that stores the state token (default: _forward_oidc_state)
+	CookieSecure    bool   // Set the secure flag on the cookie (are we on HTTPS?)
+	CookieExpiry    int64  // The expiry time of the cookie in minutes (default 60)
+	Port            int    // The port that the forward auth gateway will run on
 
 	LoginWindow  int64 // How long to wait for a user to log in before timing out in minutes (default 2)
 	CacheSize    int   // The size of the cache for storing OIDC tokens (default 500)
@@ -40,12 +41,13 @@ const (
 	ClientSecret = "OIDC_CLIENT_SECRET"
 
 	// Optional
-	DebugEnv     = "DEBUG"
-	CookieDomain = "COOKIE_DOMAIN"
-	CookieName   = "COOKIE_NAME"
-	CookieSecure = "COOKIE_SECURE"
-	CookieExpiry = "COOKIE_EXPIRY"
-	Port         = "PORT"
+	DebugEnv        = "DEBUG"
+	CookieDomain    = "COOKIE_DOMAIN"
+	CookieName      = "COOKIE_NAME"
+	StateCookieName = "STATE_COOKIE_NAME"
+	CookieSecure    = "COOKIE_SECURE"
+	CookieExpiry    = "COOKIE_EXPIRY"
+	Port            = "PORT"
 
 	LoginWindow  = "LOGIN_WINDOW"
 	CacheSize    = "CACHE_SIZE"
@@ -116,6 +118,11 @@ func LoadConfig() (*Config, error) {
 		cookieName = "_forward_oidc"
 	}
 
+	stateCookieName := os.Getenv(StateCookieName)
+	if stateCookieName == "" {
+		stateCookieName = "_forward_oidc_state"
+	}
+
 	// Default to secure cookies and require setting to false to disable
 	cookieSecure := true
 	if os.Getenv(CookieSecure) == "false" {
@@ -177,20 +184,21 @@ func LoadConfig() (*Config, error) {
 	useLoginHint := os.Getenv(UseLoginHint) == "true"
 
 	return &Config{
-		Debug:        debug,
-		CookieSecret: cookieSecret,
-		GatewayURL:   gatewayUrl,
-		OidcIssuer:   oidcIssuer,
-		ClientId:     clientId,
-		ClientSecret: clientSecret,
-		CookieDomain: cookieDomain,
-		CookieName:   cookieName,
-		CookieSecure: cookieSecure,
-		CookieExpiry: realCookieExpiry,
-		Port:         realPort,
-		LoginWindow:  loginWindow,
-		CacheSize:    cacheSize,
-		UseLoginHint: useLoginHint,
+		Debug:           debug,
+		CookieSecret:    cookieSecret,
+		GatewayURL:      gatewayUrl,
+		OidcIssuer:      oidcIssuer,
+		ClientId:        clientId,
+		ClientSecret:    clientSecret,
+		CookieDomain:    cookieDomain,
+		CookieName:      cookieName,
+		StateCookieName: stateCookieName,
+		CookieSecure:    cookieSecure,
+		CookieExpiry:    realCookieExpiry,
+		Port:            realPort,
+		LoginWindow:     loginWindow,
+		CacheSize:       cacheSize,
+		UseLoginHint:    useLoginHint,
 	}, nil
 }
 

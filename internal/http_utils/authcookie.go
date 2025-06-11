@@ -1,4 +1,4 @@
-package http
+package http_utils
 
 import (
 	"encoding/json"
@@ -17,7 +17,7 @@ type AuthCookie struct {
 
 // Issues a non server-side auth cookie for the user.
 // This is used to identify the user in subsequent requests and skip re-auth.
-func issueAuthCookie(config *util.Config, id string, exp int64) (*http.Cookie, error) {
+func IssueAuthCookie(config *util.Config, id string, exp int64) (*http.Cookie, error) {
 	log := util.GetLogger()
 
 	cookie := AuthCookie{
@@ -52,13 +52,12 @@ func issueAuthCookie(config *util.Config, id string, exp int64) (*http.Cookie, e
 
 // Used to check if we are already authenticated and return early in the
 // OIDC forward authentication flow, error means not authenticated.
-func shouldSkipReauth(config *util.Config, r *http.Request) bool {
+func ShouldSkipReauth(config *util.Config, r *http.Request) bool {
 	log := util.GetLogger()
 
 	cookie, err := r.Cookie(config.CookieName)
 	if err != nil {
 		if err == http.ErrNoCookie {
-			log.Debug("No auth cookie found")
 			return false // No cookie means we are not authenticated
 		}
 
