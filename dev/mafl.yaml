@@ -1,0 +1,8 @@
+title: "Tale"
+services:
+    - title: "Echo"
+      description: "Echo Server"
+      link: "http://echo.tale.test"
+      icon:
+          name: "devicon:traefikproxy"
+          wrap: true
