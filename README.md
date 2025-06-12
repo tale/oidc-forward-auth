@@ -15,6 +15,11 @@ These instructions assume that you have a working OIDC provider and a working
 Traefik (version 3) reverse-proxy setup. If you don't have that, you'll need to
 set that up first.
 
+Before you get started, you'll need to create a client in your OIDC provider:
+- Ensure that PKCE (Proof Key for Code Exchange) is disabled (for now).
+- Set the redirect URI to `https://your-gateway.example.com/oidc`
+- Do not set the client type to "Public", we need an ID and secret.
+
 This is deployed as a Docker container, here is a sample `docker-compose.yaml`:
 
 ```yaml
@@ -49,13 +54,18 @@ services:
       COOKIE_DOMAIN: ".example.com"
 
       # Optional cookie name, default is "_forward_oidc"
+      # State cookie is the cookie while logging in
       COOKIE_NAME: "_forward_oidc"
+      STATE_COOKIE_NAME: "_forward_oidc_state"
 
       # Optional expiry in minutes, default is 60
       COOKIE_EXPIRY: "60"
 
       # Optional port, default is 4180
       PORT: "4180"
+
+      # Sets how long authentication waits in minutes, default is 2
+      LOGIN_WINDOW: "2"
 ```
 
 Once this is deployed, you can easily create a new Traefik middleware to protect
