@@ -28,9 +28,8 @@ type Config struct {
 	CookieExpiry    int64  // The expiry time of the cookie in minutes (default 60)
 	Port            int    // The port that the forward auth gateway will run on
 
-	LoginWindow  int64 // How long to wait for a user to log in before timing out in minutes (default 2)
-	CacheSize    int   // The size of the cache for storing OIDC tokens (default 500)
-	UseLoginHint bool  // Whether to use the login hint feature (default false)
+	LoginWindow int64 // How long to wait for a user to log in before timing out in minutes (default 2)
+	CacheSize   int   // The size of the cache for storing OIDC tokens (default 500)
 }
 
 const (
@@ -49,9 +48,8 @@ const (
 	CookieExpiry    = "COOKIE_EXPIRY"
 	Port            = "PORT"
 
-	LoginWindow  = "LOGIN_WINDOW"
-	CacheSize    = "CACHE_SIZE"
-	UseLoginHint = "USE_LOGIN_HINT"
+	LoginWindow = "LOGIN_WINDOW"
+	CacheSize   = "CACHE_SIZE"
 )
 
 var (
@@ -181,8 +179,6 @@ func LoadConfig() (*Config, error) {
 		cacheSize = conv
 	}
 
-	useLoginHint := os.Getenv(UseLoginHint) == "true"
-
 	return &Config{
 		Debug:           debug,
 		CookieSecret:    cookieSecret,
@@ -198,7 +194,6 @@ func LoadConfig() (*Config, error) {
 		Port:            realPort,
 		LoginWindow:     loginWindow,
 		CacheSize:       cacheSize,
-		UseLoginHint:    useLoginHint,
 	}, nil
 }
 
