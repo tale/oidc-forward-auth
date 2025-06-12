@@ -1,0 +1,18 @@
+tls:
+    certificates:
+        - certFile: "/certs/cert.pem"
+          keyFile: "/certs/key.pem"
+http:
+    routers:
+        forward-auth:
+            rule: "Host(`auth-services.tale.test`)"
+            service: "forward-auth"
+            tls: true
+            entryPoints:
+                - "websecure"
+
+    services:
+        forward-auth:
+            loadBalancer:
+                servers:
+                    - url: "http://host.docker.internal:4180"

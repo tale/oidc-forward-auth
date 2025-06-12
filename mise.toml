@@ -1,6 +1,7 @@
 [tools]
 air = "1"
-go = "1.23.4"
+mkcert = "1"
+go = "1.24.4"
 
 [tasks.dev]
 description = "Run the hot-reloading server"
@@ -9,3 +10,16 @@ run = 'air --build.cmd "go build -o bin/ofa cmd/oidc_forward_auth.go" --build.bi
 [tasks.compose]
 description = "Run the docker-compose stack"
 run = "docker compose up"
+
+[tasks.pre-create-certs-dir]
+description = "Create the directory for certificates"
+run = "mkdir -p {{cwd}}/tmp/certs"
+
+[tasks.generate-certs]
+alias = ["mkcert"]
+depends = ["pre-create-certs-dir"]
+dir = "{{cwd}}/tmp/certs"
+run = [
+	"mkcert -install",
+	"mkcert -cert-file cert.pem -key-file key.pem echo.tale.test mafl.tale.test auth-services.tale.test",
+]
