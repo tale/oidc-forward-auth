@@ -41,12 +41,12 @@ services:
       # This needs to be behind a reverse proxy to work at all
       GATEWAY_URL: "https://your-gateway.example.com"
 
-	  # OIDC provider configuration
+      # OIDC provider configuration
       OIDC_ISSUER: "https://your-oidc-provider.example.com"
       OIDC_CLIENT_ID: "your-client-id"
       OIDC_CLIENT_SECRET: "your-client-secret"
 
-	  # Optionally enable debug logs, default false
+      # Optionally enable debug logs, default false
       DEBUG: "true"
 
       # Optionally override the cookie domain
@@ -85,6 +85,7 @@ services:
       # Just keep in mind this should be the same as GATEWAY_URL
       - traefik.http.middlewares.forward-auth.forwardauth.address=https://forward.example.com
       - traefik.http.routers.whoami.middlewares=forward-auth
+```
 
 > If you are running Traefik behind Cloudflare, it will not pass any
 > forwarded headers by default. You will need to set this in your entrypoints
