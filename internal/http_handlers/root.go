@@ -11,9 +11,20 @@ import (
 func HandleRoot(config *util.Config, oauth2 *http_utils.OidcClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := util.GetLogger()
-		log.Debug("=============")
+
+		url, ok := http_utils.DetermineRedirectURI(r)
+		if !ok {
+			// There is a case where auth just outright failed, and in this
+			// case lets just redirect back to the original URL. Traefik
+			// can handle this however it sees fit.
+
+			log.Error("Failed to determine redirect URI for %s", r.RemoteAddr)
+			http.Error(w, "Missing params to determine redirect URI", http.StatusBadRequest)
+			return
+		}
 
 		if http_utils.ShouldSkipReauth(config, r) {
+			log.Debug("Skipping re-authentication on %s: %s", r.RemoteAddr, url.String())
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("Already authenticated"))
 			return
@@ -28,17 +39,6 @@ func HandleRoot(config *util.Config, oauth2 *http_utils.OidcClient) http.Handler
 			// Here we don't have an error, but we have a reject condition
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte("Login is already in progress"))
-			return
-		}
-
-		url, ok := http_utils.DetermineRedirectURI(r)
-		if !ok {
-			// There is a case where auth just outright failed, and in this
-			// case lets just redirect back to the original URL. Traefik
-			// can handle this however it sees fit.
-
-			log.Error("Failed to determine redirect URI for %s", r.RemoteAddr)
-			http.Error(w, "Missing params to determine redirect URI", http.StatusBadRequest)
 			return
 		}
 

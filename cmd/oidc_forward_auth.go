@@ -41,8 +41,11 @@ func main() {
 	log.Info("Issuer: %s", config.OidcIssuer)
 	log.Info("Client ID: %s", config.ClientId)
 	log.Info("Redirect URL: %s", oauth2.RedirectURL)
+	log.Info("=========================")
+	log.Info("Cookie Name: %s", config.CookieName)
+	log.Info("State Cookie Name: %s", config.StateCookieName)
 
-	err = store.InitStateStore(500)
+	err = store.InitStateStore(config.CacheSize)
 	if err != nil {
 		log.Error("Failed to initialize state store: %v", err)
 		os.Exit(1)
@@ -50,6 +53,18 @@ func main() {
 
 	http.HandleFunc("/", http_handlers.HandleRoot(config, oauth2))
 	http.HandleFunc("/oidc", http_handlers.HandleOidcCallback(config, oauth2))
+	http.HandleFunc("/_health", func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie(config.CookieName)
+		if err != nil {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("Cookie: nil"))
+			return
+		}
+
+		body := fmt.Sprintf("Cookie: %s", cookie)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(body))
+	})
 
 	port := fmt.Sprintf(":%d", config.Port)
 	log.Info("Listening on %s", port)
